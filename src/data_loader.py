@@ -36,14 +36,9 @@ class MSADataset(Dataset):
         self.config.pretrained_emb = self.pretrained_emb
 
     @property
-    def tva_dim(self):
+    def modality_info(self):
         t_dim = 768 if self.config.text_encoder == 'bert' else 300
         return t_dim, self.data[0][0][1].shape[1], self.data[0][0][2].shape[1]
-
-    @property
-    def tva_len(self):
-        # keep this part dummy for code compatibility. lengths are only used in CTC module
-        return 0, 0, 0
 
     def __getitem__(self, index):
         return self.data[index]
@@ -54,15 +49,11 @@ class MSADataset(Dataset):
 
 def get_loader(params, config, shuffle=True):
     """Load DataLoader of given DialogDataset"""
-
     dataset = MSADataset(config)
-
     print('=' * 10, f"{config.mode:5} data size: {len(dataset):7} is loaded", '=' * 10)
 
     config.data_len = len(dataset)
     config.tva_dim = dataset.tva_dim
-    config.tva_len = dataset.tva_len
-
     if config.mode == 'train':
         params.n_train = len(dataset)
     elif config.mode == 'valid':
@@ -120,7 +111,6 @@ def get_loader(params, config, shuffle=True):
 
         # for later use we sort the batch in descending order of length
         batch = sorted(batch, key=lambda x: len(x[0][3]), reverse=True)     # 把一个batch的数据先按照text的长度排序
-
         v_lens, a_lens, labels, ids = [], [], [], []
 
         for sample in batch:
@@ -143,7 +133,6 @@ def get_loader(params, config, shuffle=True):
         new_alens = [lengths if lengths[0] <= max_va_seq_len else torch.IntTensor([max_va_seq_len]) for lengths in a_lens]
         vlens = torch.cat(new_vlens)
         alens = torch.cat(new_alens)
-
         labels = torch.cat(labels, dim=0)
         ids = np.array(ids)
         # 以上for循环操作，是将一个batch数据中语音长度、视觉长度、标签、id分别取出来；（4个）
