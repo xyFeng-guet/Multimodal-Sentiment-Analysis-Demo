@@ -11,7 +11,7 @@ project_dir = Path(__file__).resolve().parent.parent.parent
 
 
 class Config(object):
-    def __init__(self, params, data, mode='train'):
+    def __init__(self, data, mode='train'):
         """Configuration Class: set kwargs as class attributes with setattr"""
         data_dir = project_dir.joinpath('Datasets/CMU-origin-datasets')    # 设置数据读取路径
         data_dict = {
@@ -22,16 +22,9 @@ class Config(object):
         dataset_dir = data_dict[data.lower()]
         self.dataset_dir = dataset_dir      # dataset_dir.joinpath('align_label') if params.aligned else dataset_dir.joinpath('no_align_label')
         self.sdk_dir = project_dir.joinpath('CMU-MultimodalSDK')
-
         self.mode = mode
-        self.text_encoder = params.text_encoder
+        self.dataset = data
         self.word_emb_path = project_dir.joinpath('pretrained-language-models/glove.840B.300d.txt')   # path to a pretrained word embedding file
-
-    def __str__(self):
-        """Pretty-print configurations in alphabetical order"""
-        config_str = 'Configurations\n'
-        config_str += pprint.pformat(self.__dict__)
-        return config_str
 
     def train_tools_retrieve(self, dataset_name):
         # 设置训练工具字典
@@ -75,9 +68,8 @@ class Config(object):
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-def get_config(params, dataset='mosi', mode='train', batch_size=32):
-    config = Config(params, data=dataset, mode=mode)
-    config.dataset = dataset
+def get_config(dataset='mosi', mode='train', batch_size=32):
+    config = Config(data=dataset, mode=mode)
     config.batch_size = batch_size
     return config
 

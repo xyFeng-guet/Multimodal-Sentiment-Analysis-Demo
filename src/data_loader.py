@@ -1,5 +1,5 @@
 import numpy as np
-from dataset_argparse import text_encoder, max_t_seq_len, max_va_seq_len
+from dataset_argparse import max_t_seq_len, max_va_seq_len
 from create_dataset import MOSI, MOSEI, SIMS, PAD, UNK
 
 import torch
@@ -31,18 +31,13 @@ class MSADataset(Dataset):
 
         self.config.visual_size = self.data[0][0][1].shape[1]
         self.config.acoustic_size = self.data[0][0][2].shape[1]
-
         self.config.word2id = self.word2id
         self.config.pretrained_emb = self.pretrained_emb
 
     @property
-    def modality_info(self):
-        t_dim = 768 if self.config.text_encoder == 'bert' else 300
-        return t_dim, self.data[0][0][1].shape[1], self.data[0][0][2].shape[1]
-
     def __getitem__(self, index):
         return self.data[index]
-
+    @property
     def __len__(self):
         return self.len
 
@@ -153,14 +148,10 @@ def get_loader(params, config, shuffle=True):
         details = []
         for sample in batch:
             text = " ".join(sample[0][3])
-            if text_encoder == "bert":
-                encoded_sent = bert_tokenizer.encode_plus(
-                    text, max_length=SENT_LEN, add_special_tokens=True, truncation=True, padding='max_length')
-                details.append(encoded_sent)
-            else:
-                raise NotImplementedError
+            encoded_sent = bert_tokenizer.encode_plus(text, max_length=SENT_LEN, add_special_tokens=True, truncation=True, padding='max_length')
+            details.append(encoded_sent)
 
-        # Bert/T5 things are batch_first
+        # Bert things are batch_first
         encoder_sentences = torch.LongTensor([sample["input_ids"] for sample in details])
         encoder_sentence_types = torch.LongTensor([sample["token_type_ids"] for sample in details])
         encoder_sentence_att_mask = torch.LongTensor([sample["attention_mask"] for sample in details])
@@ -177,6 +168,7 @@ def get_loader(params, config, shuffle=True):
         batch_size=config.batch_size,
         shuffle=shuffle,
         collate_fn=collate_fn,
-        generator=torch.Generator(device='cuda'))
+        generator=torch.Generator(device='cuda')
+    )
 
     return data_loader

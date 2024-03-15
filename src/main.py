@@ -32,6 +32,28 @@ def get_all_params(dataset='mosi'):
     return params
 
 
+def os_env_devices(params):
+    params.use_cuda = False
+
+    # set manual seed
+    random.seed(params.seed)
+    np.random.seed(params.seed)
+    torch.manual_seed(params.seed)
+    os.environ['PYTHONHASHSEED'] = str(params.seed)
+    torch.autograd.set_detect_anomaly(True)  # 检测梯度正向与反向传播异常
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(params.seed)
+        torch.cuda.manual_seed_all(params.seed)
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        params.use_cuda = True
+    else:
+        torch.set_default_tensor_type('torch.FloatTensor')
+
+
 def get_all_data_loaders(params):
     # configurations for data_loader
     dataset = str.lower(params.dataset.strip())
@@ -45,9 +67,9 @@ def get_all_data_loaders(params):
 
     print('\n' + '=' * 10 + ' ' * 6, "Start loading the data", ' ' * 6 + '=' * 10 + '\n')
 
-    train_config = get_config(params, dataset, mode='train', batch_size=batch_size)
-    valid_config = get_config(params, dataset, mode='valid', batch_size=batch_size)
-    test_config = get_config(params, dataset, mode='test', batch_size=batch_size)
+    train_config = get_config(dataset, mode='train', batch_size=batch_size)
+    valid_config = get_config(dataset, mode='valid', batch_size=batch_size)
+    test_config = get_config(dataset, mode='test', batch_size=batch_size)
 
     model_config = {'train': train_config, 'valid': valid_config, 'test': test_config}
 
@@ -64,37 +86,11 @@ def get_all_data_loaders(params):
     return hyp_params, data_loaders, model_config
 
 
-def os_env_devices(params):
-    params.use_cuda = False
-
-    # set manual seed
-    random.seed(params.seed)
-    np.random.seed(params.seed)
-    torch.manual_seed(params.seed)
-    os.environ['PYTHONHASHSEED'] = str(params.seed)
-
-    torch.autograd.set_detect_anomaly(True)  # 检测梯度正向与反向传播异常
-
-    if torch.cuda.is_available():
-        if params.no_cuda:
-            print("WARNING: You have a CUDA device, so you should probably not run with --no_cuda")
-        else:
-            torch.cuda.manual_seed(params.seed)
-            torch.cuda.manual_seed_all(params.seed)
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            params.use_cuda = True
-    else:
-        torch.set_default_tensor_type('torch.FloatTensor')
-
-
 if __name__ == '__main__':
     start_time = time.time()
 
-    params = get_all_params(dataset='mosi')         # 获取所有参数
-    os_env_devices(params)                           # 设置随机种子、GPU等环境变量
+    params = get_all_params(dataset='mosi')     # 获取所有参数
+    os_env_devices(params)      # 设置随机种子、GPU等环境变量
     hyp_params, data_loaders, model_config = get_all_data_loaders(params)  # 获取训练、验证、测试数据
 
     solver = Solver(hyp_params, data_loaders=data_loaders)
