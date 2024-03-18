@@ -19,12 +19,12 @@ class Config(object):
             'mosei': data_dir.joinpath('MOSEI'),
             'sims': data_dir.joinpath('CH-SIMS')
         }
-        dataset_dir = data_dict[data.lower()]
-        self.dataset_dir = dataset_dir      # dataset_dir.joinpath('align_label') if params.aligned else dataset_dir.joinpath('no_align_label')
+        self.dataset_dir = data_dict[data.lower()]      # dataset_dir.joinpath('align_label') if params.aligned else dataset_dir.joinpath('no_align_label')
         self.sdk_dir = project_dir.joinpath('CMU-MultimodalSDK')
         self.mode = mode
         self.dataset = data
         self.word_emb_path = project_dir.joinpath('pretrained-language-models/glove.840B.300d.txt')   # path to a pretrained word embedding file
+        self.shuffle = bool(True) if mode == 'train' else False
 
     def train_tools_retrieve(self, dataset_name):
         # 设置训练工具字典
@@ -68,10 +68,12 @@ class Config(object):
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-def get_config(dataset='mosi', mode='train', batch_size=32):
-    config = Config(data=dataset, mode=mode)
-    config.batch_size = batch_size
-    return config
+def get_config(dataset='mosi'):
+    train_config = Config(data=dataset, mode='train')
+    valid_config = Config(data=dataset, mode='valid')
+    test_config = Config(data=dataset, mode='test')
+    model_config = {'train': train_config, 'valid': valid_config, 'test': test_config}
+    return model_config
 
 
 def get_hyper_params(params, model_config, dataset):

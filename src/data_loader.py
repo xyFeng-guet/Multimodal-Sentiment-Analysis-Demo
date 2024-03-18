@@ -27,7 +27,7 @@ class MSADataset(Dataset):
 
         # 使用bert，因此预训练embedding为None
         self.data, self.word2id, self.pretrained_emb = dataset.get_data(config.mode)
-        self.len = len(self.data)
+        self.length = len(self.data)
 
         self.config.visual_size = self.data[0][0][1].shape[1]
         self.config.acoustic_size = self.data[0][0][2].shape[1]
@@ -39,22 +39,15 @@ class MSADataset(Dataset):
         return self.data[index]
     @property
     def __len__(self):
-        return self.len
+        return self.length
 
 
-def get_loader(params, config, shuffle=True):
+def get_loader(params, config):
     """Load DataLoader of given DialogDataset"""
-    dataset = MSADataset(config)
-    print('=' * 10, f"{config.mode:5} data size: {len(dataset):7} is loaded", '=' * 10)
-
-    config.data_len = len(dataset)
-    config.tva_dim = dataset.tva_dim
-    if config.mode == 'train':
-        params.n_train = len(dataset)
-    elif config.mode == 'valid':
-        params.n_valid = len(dataset)
-    elif config.mode == 'test':
-        params.n_test = len(dataset)
+    train_dataset = MSADataset(config['train'])
+    valid_dataset = MSADataset(config['valid'])
+    test_dataset = MSADataset(config['test'])
+    params.n_train, params.n_valid, params.n_test = train_dataset.length, valid_dataset.length, test_dataset.length
 
     '''
     先执行dataset中的__getitem__, 然后再将__getitem__的输出传给collate_fn函数,
@@ -163,12 +156,28 @@ def get_loader(params, config, shuffle=True):
 
         return visual, vlens, acoustic, alens, labels, lengths, encoder_sentences, encoder_sentence_types, encoder_sentence_att_mask, ids
 
-    data_loader = DataLoader(
-        dataset=dataset,
-        batch_size=config.batch_size,
-        shuffle=shuffle,
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=params.batch_size,
+        shuffle=config['train'].shuffle,
+        collate_fn=collate_fn,
+        generator=torch.Generator(device='cuda')
+    )
+    valid_loader = DataLoader(
+        dataset=valid_dataset,
+        batch_size=params.batch_size,
+        shuffle=config['valid'].shuffle,
+        collate_fn=collate_fn,
+        generator=torch.Generator(device='cuda')
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=params.batch_size,
+        shuffle=config['test'].shuffle,
         collate_fn=collate_fn,
         generator=torch.Generator(device='cuda')
     )
 
-    return data_loader
+    print('=' * 10, f"data split [train/valid/test]: {train_dataset.len/valid_dataset.len/test_dataset.len} is loaded", '=' * 10)
+    data_loaders = {'train': train_loader, 'valid': valid_loader, 'test': test_loader}
+    return data_loaders

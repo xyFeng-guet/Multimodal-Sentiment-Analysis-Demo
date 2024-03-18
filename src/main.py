@@ -66,24 +66,12 @@ def get_all_data_loaders(params):
     ####################################################################
 
     print('\n' + '=' * 10 + ' ' * 6, "Start loading the data", ' ' * 6 + '=' * 10 + '\n')
-
-    train_config = get_config(dataset, mode='train', batch_size=batch_size)
-    valid_config = get_config(dataset, mode='valid', batch_size=batch_size)
-    test_config = get_config(dataset, mode='test', batch_size=batch_size)
-
-    model_config = {'train': train_config, 'valid': valid_config, 'test': test_config}
-
-    # pretrained_emb saved in train_config here
-    train_loader = get_loader(params, model_config['train'], shuffle=True)
-    valid_loader = get_loader(params, model_config['valid'], shuffle=False)
-    test_loader = get_loader(params, model_config['test'], shuffle=False)
-
+    model_config = get_config(dataset)
+    data_loaders = get_loader(params, model_config)
+    hyp_params = get_hyper_params(params, model_config, dataset)  # 获取所有超参数（根据不同 model）
     print('\n' + '=' * 10 + ' ' * 6, 'Finish loading the data', ' ' * 5 + '=' * 10 + '\n')
 
-    hyp_params = get_hyper_params(params, model_config, dataset)  # 获取所有超参数（根据不同 model）
-    data_loaders = {'train': train_loader, 'valid': valid_loader, 'test': test_loader}
-
-    return hyp_params, data_loaders, model_config
+    return hyp_params, data_loaders
 
 
 if __name__ == '__main__':
@@ -91,7 +79,7 @@ if __name__ == '__main__':
 
     params = get_all_params(dataset='mosi')     # 获取所有参数
     os_env_devices(params)      # 设置随机种子、GPU等环境变量
-    hyp_params, data_loaders, model_config = get_all_data_loaders(params)  # 获取训练、验证、测试数据
+    hyp_params, data_loaders = get_all_data_loaders(params)  # 获取训练、验证、测试数据
 
     solver = Solver(hyp_params, data_loaders=data_loaders)
     solver.process_model()
