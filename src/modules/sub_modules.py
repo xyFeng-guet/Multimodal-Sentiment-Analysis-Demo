@@ -57,7 +57,6 @@ class TransformerFusion(nn.Module):
         self.hp = hp
         self.layers = hp.fusion_layers
         self.num_heads = hp.fusion_num_heads
-        self.attn_mask = hp.fusion_attn_mask
         self.embed_dim = hp.dim_seq_out_v
         self.dropout_type = dropout_type
 
@@ -75,7 +74,6 @@ class TransformerFusion(nn.Module):
             relu_dropout=self.dropout_type['relu'],
             res_dropout=self.dropout_type['res'],
             embed_dropout=self.dropout_type['embed'],
-            attn_mask=self.attn_mask
         )
 
     def forward(self, seq_l, seq_a, seq_v, lengths, mask):
@@ -97,7 +95,7 @@ class SubNet(nn.Module):
     '''The subnetwork that is used in TFN for video and audio in the pre-fusion stage
     '''
 
-    def __init__(self, in_size, hidden_size, n_head, n_class, dropout):
+    def __init__(self, in_size, hidden_size, n_class):
         '''
         Args:
             in_size: input dimension

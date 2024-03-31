@@ -51,7 +51,7 @@ class _model(nn.Module):
 
     def _get_mask(self, text_sent_mask, lengths):
         mask = {}
-        mask['t'] = text_sent_mask[:, 1:] if self.hp.text_encoder != 'glove' else None
+        mask['t'] = text_sent_mask[:, 1:]
         mask['v'] = torch.zeros(len(lengths['v']) * max_va_seq_len).view(len(lengths['v']), max_va_seq_len).to(self.hp.device)
         mask['a'] = torch.zeros(len(lengths['a']) * max_va_seq_len).view(len(lengths['a']), max_va_seq_len).to(self.hp.device)
 

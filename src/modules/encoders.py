@@ -14,37 +14,23 @@ class LanguageEmbeddingLayer(nn.Module):
         super(LanguageEmbeddingLayer, self).__init__()
         self.hp = hp
 
-        if self.hp.text_encoder == 'bert':
-            bertconfig = BertConfig.from_pretrained('./pretrained-language-models/bert-base-uncased', output_hidden_states=True)
-            self.language_model = BertModel.from_pretrained('./pretrained-language-models/bert-base-uncased', config=bertconfig)
-        else:
-            # text_embedding == 'glove'
-            self.embedding = nn.Embedding(self.hp.vocab_size, self.hp.emb_size)
+        bertconfig = BertConfig.from_pretrained('./pretrained-language-models/bert-base-uncased', output_hidden_states=True)
+        self.language_model = BertModel.from_pretrained('./pretrained-language-models/bert-base-uncased', config=bertconfig)
+        # text_embedding == 'glove'
+        # self.embedding = nn.Embedding(self.hp.vocab_size, self.hp.emb_size)
 
     def forward(self, bert_sent, bert_sent_type, bert_sent_mask):
-        if self.hp.text_encoder == 'bert':
-            bert_output = self.language_model(
-                input_ids=bert_sent,
-                attention_mask=bert_sent_mask,
-                token_type_ids=bert_sent_type
-            )
+        bert_output = self.language_model(
+            input_ids=bert_sent,
+            attention_mask=bert_sent_mask,
+            token_type_ids=bert_sent_type
+        )
 
-            # bertmodel会输出 hidden states，以及last hidden state
-            # hidden states 包含了13层 transformer encoder 的输出，最后一层为最终的语义表示
-            # last hidden state 为最后一层 transformer encoder 的输出，所以通过 bert_output[0] 取出
-            bert_output = bert_output[0]    # [batch_size, seq_len, dim(768)]
-
-            # masked mean
-            # masked_output = torch.mul(bert_sent_mask.unsqueeze(2), bert_output)
-            # mask_len = torch.sum(bert_sent_mask, dim=1, keepdim=True)
-            # output = torch.sum(masked_output, dim=1, keepdim=False) / mask_len
-            return bert_output   # return head (sequence representation)
-        else:
-            # text_embedding == 'glove'
-            # output = self.embedding(sentences)
-            # return output
-            raise NotImplementedError
-
+        # bertmodel会输出 hidden states，以及last hidden state
+        # hidden states 包含了13层 transformer encoder 的输出，最后一层为最终的语义表示
+        # last hidden state 为最后一层 transformer encoder 的输出，所以通过 bert_output[0] 取出
+        bert_output = bert_output[0]    # [batch_size, seq_len, dim(768)]
+        return bert_output
 
 class SeqEncoder(nn.Module):
     """Encode all modalities with assigned network. The network will output encoded presentations
@@ -69,25 +55,22 @@ class SeqEncoder(nn.Module):
         super(SeqEncoder, self).__init__()
         self.hp = hp = hyp_params
 
-        self.origin_dim_a, self.origin_dim_v = hp.origin_dim_a, hp.origin_dim_v
-        self.hidd_dim_a, self.hidd_dim_v = hp.dim_seq_hidden_a, hp.dim_seq_hidden_v
-        self.out_dim_a, self.out_dim_v = hp.dim_seq_out_a, hp.dim_seq_out_v
-
         ############################
         # TODO: use compound mode ##
         ############################
+        self.origin_dim_a, self.origin_dim_v = hp.origin_dim_a, hp.origin_dim_v
+        self.hidd_dim_a, self.hidd_dim_v = hp.dim_seq_hidden_a, hp.dim_seq_hidden_v
+        self.out_dim_a, self.out_dim_v = hp.dim_seq_out_a, hp.dim_seq_out_v
         self.layers = hp.num_seq_layers
-        self.bidirectional = hp.bidirectional
-        self.drop_linear = hp.drop_linear
-        self.drop_seq_a = self.drop_seq_v = hp.drop_seq
+        self.bidirectional = True
 
         #####################################################################
         # TODO: 1) Use double layer                                         #
         #       2) Keep language unchanged while encode video and accoustic #
         #####################################################################
 
-        self.rnn_v = nn.LSTM(input_size=self.origin_dim_v, hidden_size=self.hidd_dim_v, num_layers=self.layers, bidirectional=self.bidirectional, dropout=self.drop_seq_v, batch_first=False)
-        self.rnn_a = nn.LSTM(input_size=self.origin_dim_a, hidden_size=self.hidd_dim_a, num_layers=self.layers, bidirectional=self.bidirectional, dropout=self.drop_seq_a, batch_first=False)
+        self.rnn_v = nn.LSTM(input_size=self.origin_dim_v, hidden_size=self.hidd_dim_v, num_layers=self.layers, bidirectional=self.bidirectional, batch_first=False)
+        self.rnn_a = nn.LSTM(input_size=self.origin_dim_a, hidden_size=self.hidd_dim_a, num_layers=self.layers, bidirectional=self.bidirectional, batch_first=False)
 
         self.cnn_v = nn.Conv1d(in_channels=self.origin_dim_v, out_channels=self.hidd_dim_v, kernel_size=3, stride=1, padding=1)
         self.cnn_a = nn.Conv1d(in_channels=self.origin_dim_a, out_channels=self.hidd_dim_a, kernel_size=3, stride=1, padding=1)
@@ -103,7 +86,7 @@ class SeqEncoder(nn.Module):
         self.layer_norm_a = nn.LayerNorm(self.out_dim_a)
 
         self.activ = nn.ReLU()
-        self.dropout = nn.Dropout(self.drop_linear)
+        self.dropout = nn.Dropout(0.1)
 
         ##########################################
         #   TODO: add activations\dropout later  #
@@ -175,13 +158,12 @@ class TransEncoder(nn.Module):
         self.embed_dim = hp.dim_trans_atten
         self.num_heads_a, self.num_heads_v = hp.num_trans_heads_a, hp.num_trans_heads_v
         self.layers = hp.num_trans_layers
-        self.drop_trans = hp.drop_trans
 
         self.linear_proj_a = nn.Linear(self.origin_dim_a, self.embed_dim)
         self.linear_proj_v = nn.Linear(self.origin_dim_v, self.embed_dim)
 
         self.activ = nn.ReLU()
-        self.dropout = nn.Dropout(self.drop_trans)
+        self.dropout = nn.Dropout(0.1)
 
         self.transformer_a = FeatureExtract(
             encoder_fea_dim=self.embed_dim,

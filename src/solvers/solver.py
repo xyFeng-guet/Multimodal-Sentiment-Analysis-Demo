@@ -15,13 +15,8 @@ from utils.tools import save_model, search_fail_samples
 class Solver(SolverBase):
     def __init__(self, hyp_params, data_loaders):
         super(Solver, self).__init__(hyp_params, data_loaders)
-
         self.hp = hyp_params
         self.best_epoch = 0
-        self.update_batch = self.hp.update_batch
-
-        self.alpha = self.hp.alpha
-        self.beta = self.hp.beta
 
         self.eval_function = {
             "mosi": eval_mosi,
@@ -57,8 +52,6 @@ class Solver(SolverBase):
         early_stop = self.earlyStop
         eval_function = self.eval_function[self.hp.dataset]
         threshold = self.hp.threshold   # 设定错误样例阈值
-
-        scheduler_pretrained = self.scheduler['pretrained']
         scheduler_main = self.scheduler['main']
 
         for epoch in range(1, self.hp.num_epochs + 1):
@@ -71,7 +64,6 @@ class Solver(SolverBase):
             test_loss, results_test, truths_test, allids = self.eval_tmp(phase='test')
 
             scheduler_main.step(val_loss)    # Decay learning rate by validation loss
-            scheduler_pretrained.step(val_loss)
 
             train_stats = eval_function(results_train, truths_train, True) + [round(float(sum(train_loss)), 3)]
             valid_stats = eval_function(results_val, truths_val, True) + [val_loss]
@@ -147,13 +139,12 @@ class Solver(SolverBase):
     def train_tmp(self, phase='normal'):
         epoch_loss = 0.0
         results, truths = [], []
-        left_batch = self.update_batch  # 训练几个 batch 后 optimal 一次模型
 
         model = self.model.train()
         data_loader = self.data_loaders['train']
 
         criterion = self.criterion  # criterion for downstream task
-        optimizer = self.optimizer['pretrained'] if phase == 'pretrained' else self.optimizer['main']
+        optimizer = self.optimizer['pretrained'] if phase == 'pretrained' else self.optimizer['model']
 
         # i_batch 记录使用的第几组batch, 预处理时使用
         for i_batch, batch_data in enumerate(tqdm(data_loader, desc='train')):
@@ -163,23 +154,19 @@ class Solver(SolverBase):
             batch_size = y.size(0)
 
             model.zero_grad()
-            preds, contras_loss = model(batch_data, lengths)
+            preds = model(batch_data, lengths)
 
             if phase == 'pretrained':
                 pass
             elif phase == 'normal':    # normal training with contrastive learning
-                preds_loss = criterion(preds, y)
-                loss = self.hp.alpha * preds_loss + self.hp.beta * contras_loss
+                loss = criterion(preds, y)
                 loss.backward()
             else:
                 raise ValueError('stage index can either be 0 or 1')
 
-            # 若设置为1，每个batch更新一次模型
-            left_batch -= 1     # 记录还剩下几个batch更新一次模型
-            if left_batch == 0:
-                left_batch = self.update_batch  # 复原
-                torch.nn.utils.clip_grad_norm_(model.parameters(), self.hp.clip)
-                optimizer.step()
+            # Update the model
+            torch.nn.utils.clip_grad_norm_(model.parameters(), self.hp.clip)
+            optimizer.step()
 
             epoch_loss += loss.item() * batch_size
             results.append(preds)
@@ -209,7 +196,7 @@ class Solver(SolverBase):
                 lengths = {'t': text_sent_mask.sum(1), 'v': vlens, 'a': alens}
                 batch_size = y.size(0)
 
-                preds, _ = model(batch_data, lengths)
+                preds = model(batch_data, lengths)
                 total_loss += criterion(preds, y).item() * batch_size
 
                 # Collect the results into ntest if test else self.hp.n_valid)

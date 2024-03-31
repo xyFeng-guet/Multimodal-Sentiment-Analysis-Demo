@@ -26,22 +26,8 @@ class Config(object):
         self.word_emb_path = project_dir.joinpath('pretrained-language-models/glove.840B.300d.txt')   # path to a pretrained word embedding file
         self.shuffle = bool(True) if mode == 'train' else False
 
-    def train_tools_retrieve(self, dataset_name):
+    def train_tools_retrieve(self, dataset_name, tool):
         # 设置训练工具字典
-        optimizer_dict = {
-            'RMSprop': optim.RMSprop,
-            'Adam': optim.Adam
-        }
-        activation_dict = {
-            'elu': nn.ELU,
-            "hardshrink": nn.Hardshrink,
-            "hardtanh": nn.Hardtanh,
-            "leakyrelu": nn.LeakyReLU,
-            "prelu": nn.PReLU,
-            "relu": nn.ReLU,
-            "rrelu": nn.RReLU,
-            "tanh": nn.Tanh
-        }
         output_dim_dict = {
             'mosi': 1,
             'mosei_senti': 1,
@@ -55,8 +41,7 @@ class Config(object):
             'sims': 'L2Loss'
         }
 
-        tool = None
-        return tool
+        return output_dim_dict[dataset_name] if tool == "output_dim" else criterion_dict[dataset_name]
 
     def str2bool(v):
         """string to boolean"""
@@ -87,13 +72,11 @@ def get_hyper_params(params, model_config, dataset):
     hyp_params.pretrained_emb = model_config['train'].pretrained_emb
 
     # architecture parameters
-    hyp_params.origin_dim_t, hyp_params.origin_dim_v, hyp_params.origin_dim_a = model_config['train'].tva_dim
-    hyp_params.len_t, hyp_params.len_a, hyp_params.len_v = model_config['train'].tva_len
-
+    hyp_params.origin_dim_v, hyp_params.origin_dim_a, hyp_params.origin_dim_t = model_config['train'].visual_size, model_config['train'].acoustic_size, 768
     hyp_params.use_cuda = params.use_cuda
     hyp_params.when = params.when
     hyp_params.dataset = dataset
-    hyp_params.n_class = model_config.train_tools_retrieve(dataset, 1)
-    hyp_params.criterion = model_config.train_tools_retrieve(dataset, 'MSELoss')
+    hyp_params.n_class = model_config['train'].train_tools_retrieve(dataset, 'output_dim')
+    hyp_params.criterion = model_config['train'].train_tools_retrieve(dataset, 'criterion')
 
     return hyp_params

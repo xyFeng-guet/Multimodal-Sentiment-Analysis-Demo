@@ -5,7 +5,7 @@ import argparse
 
 abs_path = os.path.abspath(os.path.dirname(__file__))   # 获取当前工作的绝对路径
 
-max_t_seq_len = 51
+max_t_seq_len = 50
 max_va_seq_len = 50
 
 

@@ -17,7 +17,6 @@ class SolverBase(object):
         ####################################################################
 
         self.hp = hyp_params
-        self.saving_path = self.hp.save_path
         self.data_loaders = data_loaders
 
         # Initialize the device
@@ -32,16 +31,10 @@ class SolverBase(object):
         print('\n' + '=' * 7, f" Total number of parameters is {self.total_params}", '=' * 7 + '\n')
 
         # Initialize more the criterion and loss function
-        if self.hp.dataset is "mosei_emo":    # mosei_emo are classification datasets
+        if self.hp.dataset == "mosei_emo":    # mosei_emo are classification datasets
             self.criterion = nn.CrossEntropyLoss(reduction="mean")
         else:   # mosi and mosei_senti are regression datasets
             self.criterion = nn.L1Loss(reduction="mean")
-
-        # Initialize weight of Embedding matrix with Glove embeddings
-        if self.hp.text_encoder == 'glove':    # [bert, t5, glove]
-            if self.hp.pretrained_emb is not None:
-                self.model.embedding.embed.weight.data = self.hp.pretrained_emb
-            self.model.embedding.embed.requires_grad = False
 
         # 根据模型，初始化不同的优化器及学习率调整器
         bert_param, va_encoder_param, backbone_param = [], [], []    # 对 bert 的参数进行 fine-tune
@@ -60,32 +53,32 @@ class SolverBase(object):
                     nn.init.xavier_normal_(p)
 
         # Initialize the optimizer
-        optimizer_pretrained_group = [
-            {'params': bert_param, 'weight_decay': self.hp.weight_decay_bert, 'lr': self.hp.lr_bert},
-            {'params': va_encoder_param, 'weight_decay': self.hp.weight_decay_pretrained, 'lr': self.hp.lr_pretrained}
-        ]
+        # optimizer_pretrained_group = [
+        #     {'params': bert_param, 'weight_decay': self.hp.weight_decay_bert, 'lr': self.hp.lr_bert},
+        #     {'params': va_encoder_param, 'weight_decay': self.hp.weight_decay_pretrained, 'lr': self.hp.lr_pretrained}
+        # ]
         optimizer_main_group = [
-            {'params': bert_param, 'weight_decay': self.hp.weight_decay_bert, 'lr': 5e-5},  # 先设置为0，看一下效果    self.hp.lr_bert
-            {'params': va_encoder_param, 'weight_decay': self.hp.weight_decay_main, 'lr': self.hp.lr_encoder},
-            {'params': backbone_param, 'weight_decay': self.hp.weight_decay_main, 'lr': self.hp.lr_backbone}
+            {'params': bert_param, 'weight_decay': self.hp.weight_decay_bert, 'lr': self.hp.lr_bert},  # 先设置为0，看一下效果    self.hp.lr_bert
+            {'params': va_encoder_param, 'weight_decay': self.hp.weight_decay_model, 'lr': self.hp.lr_model},
+            {'params': backbone_param, 'weight_decay': self.hp.weight_decay_model, 'lr': self.hp.lr_model}
         ]
 
         self.optimizer = {
-            'pretrained': getattr(optim, self.hp.optim)(optimizer_pretrained_group),
-            'main': getattr(optim, self.hp.optim)(optimizer_main_group)
+            # 'pretrained': getattr(optim, self.hp.optim)(optimizer_pretrained_group),
+            'model': getattr(optim, 'Adam')(optimizer_main_group)
         }
 
         # Initialize the scheduler
         self.scheduler = {
-            'pretrained': ReduceLROnPlateau(self.optimizer['pretrained'], mode='min', patience=self.hp.when, factor=0.5, verbose=True),
-            'main': ReduceLROnPlateau(self.optimizer['main'], mode='min', patience=self.hp.when, factor=0.5, verbose=True)
+            # 'pretrained': ReduceLROnPlateau(self.optimizer['pretrained'], mode='min', patience=self.hp.when, factor=0.5, verbose=True),
+            'main': ReduceLROnPlateau(self.optimizer['model'], mode='min', patience=self.hp.when, factor=0.5, verbose=True)
         }
 
         # Initalize the early stopping object
         self.earlyStop = self.hp.patience
 
         # Initialize the best model
-        self.best_model = copy.deepcopy(self.model.state_dict())
+        self.best_model = None
 
     def save_model(self):
         stats = {

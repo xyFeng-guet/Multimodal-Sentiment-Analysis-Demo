@@ -11,7 +11,6 @@ class MultiClass(nn.Module):
         """
         super(MultiClass, self).__init__()
         self.hp = hp
-        self.device = hp.device
         dim_sum = hp.dim_seq_out_a + hp.dim_seq_out_v + hp.dim_trans_atten * 2 + hp.origin_dim_t
         dropout_type = {'attn': 0.0, 'relu': 0.0, 'res': 0.0, 'embed': 0.0}
 
@@ -19,7 +18,7 @@ class MultiClass(nn.Module):
         self.embedding_align = FeatureProjector(
             input_dim=hp.origin_dim_t,
             output_dim=hp.dim_trans_atten,
-            num_layers=hp.emb_align_layers,
+            num_layers=3,
             drop_out=0.0
         )
 
@@ -30,9 +29,7 @@ class MultiClass(nn.Module):
         self.fusion_prj = SubNet(
             in_size=dim_sum + hp.dim_trans_atten * 4,
             hidden_size=hp.last_dim_proj,
-            n_head=hp.subnet_atten_nhead,
-            n_class=hp.n_class,
-            dropout=hp.drop_last_proj
+            n_class=hp.n_class
         )
 
     def forward(self, batch_data):
@@ -54,11 +51,11 @@ class MultiClass(nn.Module):
         sent_feature_a = torch.cat([sent_sem_a, sent_seq_a], dim=-1)
         sent_feature_v = torch.cat([sent_sem_v, sent_seq_v], dim=-1)
 
-        feature_text = self.embedding_align(feature_text).permute(1, 0, 2)     # 将bert输出的维度适配到fusion模块
+        align_feature_text = self.embedding_align(feature_text).permute(1, 0, 2)     # 将bert输出的维度适配到fusion模块
 
         # fusion
         fusion_info = self.fusion_net(
-            seq_l=feature_text,
+            seq_l=align_feature_text,
             seq_a=token_seq_a,
             seq_v=token_seq_v,
             lengths=lengths['t'],
@@ -66,7 +63,7 @@ class MultiClass(nn.Module):
         )
 
         # residral proj and pred
-        unimodal_info = torch.cat([feature_text, sent_feature_a, sent_feature_v], dim=-1)
+        unimodal_info = torch.cat([feature_text[:, 0, :], sent_feature_a, sent_feature_v], dim=-1)
         preds = self.fusion_prj(unimodal_info, fusion_info)
 
         return preds

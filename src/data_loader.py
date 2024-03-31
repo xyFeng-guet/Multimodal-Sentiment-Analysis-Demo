@@ -34,10 +34,9 @@ class MSADataset(Dataset):
         self.config.word2id = self.word2id
         self.config.pretrained_emb = self.pretrained_emb
 
-    @property
     def __getitem__(self, index):
         return self.data[index]
-    @property
+
     def __len__(self):
         return self.length
 
@@ -160,24 +159,21 @@ def get_loader(params, config):
         dataset=train_dataset,
         batch_size=params.batch_size,
         shuffle=config['train'].shuffle,
-        collate_fn=collate_fn,
-        generator=torch.Generator(device='cuda')
+        collate_fn=collate_fn
     )
     valid_loader = DataLoader(
         dataset=valid_dataset,
         batch_size=params.batch_size,
         shuffle=config['valid'].shuffle,
-        collate_fn=collate_fn,
-        generator=torch.Generator(device='cuda')
+        collate_fn=collate_fn
     )
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=params.batch_size,
         shuffle=config['test'].shuffle,
-        collate_fn=collate_fn,
-        generator=torch.Generator(device='cuda')
+        collate_fn=collate_fn
     )
 
-    print('=' * 10, f"data split [train/valid/test]: {train_dataset.len/valid_dataset.len/test_dataset.len} is loaded", '=' * 10)
+    print('=' * 10, f"data split [train/valid/test]: {train_dataset.length}/{valid_dataset.length}/{test_dataset.length}", '=' * 10)
     data_loaders = {'train': train_loader, 'valid': valid_loader, 'test': test_loader}
     return data_loaders

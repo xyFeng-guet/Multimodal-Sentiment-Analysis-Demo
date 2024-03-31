@@ -23,7 +23,7 @@ class CrossModuleTransformer(nn.Module):
     """
 
     def __init__(self, embed_dim, num_heads, layers, attn_dropout=0.0, relu_dropout=0.0, res_dropout=0.0,
-                 embed_dropout=0.0, attn_mask=False):
+                 embed_dropout=0.0, attn_mask=True):
         super().__init__()
         self.layers = layers
         self.dropout = embed_dropout      # Embedding dropout
@@ -31,8 +31,6 @@ class CrossModuleTransformer(nn.Module):
         self.embed_dim = embed_dim
         self.embed_scale = math.sqrt(embed_dim)
         self.embed_positions = SinusoidalPositionalEmbedding(embed_dim)
-
-        self.attn_mask = attn_mask
 
         # a pair of transformers plus a domain-invariant encoder
         self.l2other_layers = nn.ModuleList([])
