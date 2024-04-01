@@ -116,8 +116,8 @@ class SubNet(nn.Module):
             x: tensor of shape (batch_size, in_size)
             t, a, v: tensors of shape (batch_size, length, dim_size)
         '''
-        y_cat = torch.cat([complete_input, fusion_feature], dim=1)
-
+        # y_cat = torch.cat([complete_input, fusion_feature], dim=1)
+        y_cat = complete_input
         y_fusion = torch.tanh(self.linear_project1(y_cat))
         y_fusion = torch.tanh(self.linear_project2(y_fusion))
         y_fusion = torch.tanh(self.linear_project3(y_fusion))

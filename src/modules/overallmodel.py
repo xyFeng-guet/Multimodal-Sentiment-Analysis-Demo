@@ -17,7 +17,7 @@ class _model(nn.Module):
         self.hp = hp
 
         self.text_encoder = LanguageEmbeddingLayer(self.hp)
-        self.semantic_encoder = TransEncoder(self.hp)   # extract semantic feature
+        # self.semantic_encoder = TransEncoder(self.hp)   # extract semantic feature
         self.sequence_encoder = SeqEncoder(self.hp)  # extract sequence feature
 
         self.backbone = MultiClass(self.hp)
@@ -40,18 +40,19 @@ class _model(nn.Module):
         text_embedding = self.text_encoder(text_sent, text_sent_type, text_sent_mask)  # [batch_size, seq_len, emb_size]
 
         # extract semantic feature
-        feature_sem = self.semantic_encoder(visual, lengths['v'], acoustic, lengths['a'], mask)   # feature_sem: {'visual': x, 'acoustic': x}
+        # feature_sem = self.semantic_encoder(visual, lengths['v'], acoustic, lengths['a'], mask)   # feature_sem: {'visual': x, 'acoustic': x}
         # extract sequence feature
         feature_seq = self.sequence_encoder(visual, acoustic, lengths)  # feature_seq: {'visual': x, 'acoustic': x, 'text': x}
 
-        input_batch_data = [text_embedding, feature_sem, feature_seq, lengths, mask, y]
+        # input_batch_data = [text_embedding, feature_sem, feature_seq, lengths, mask, y]
+        input_batch_data = [text_embedding, feature_seq, lengths, mask, y]
         preds = self.backbone(input_batch_data)
 
         return preds
 
     def _get_mask(self, text_sent_mask, lengths):
         mask = {}
-        mask['t'] = text_sent_mask[:, 1:]
+        mask['t'] = text_sent_mask
         mask['v'] = torch.zeros(len(lengths['v']) * max_va_seq_len).view(len(lengths['v']), max_va_seq_len).to(self.hp.device)
         mask['a'] = torch.zeros(len(lengths['a']) * max_va_seq_len).view(len(lengths['a']), max_va_seq_len).to(self.hp.device)
 
